@@ -1,17 +1,19 @@
-// Builds course.epub from course-doc.html (run build-course-doc.mjs first).
+// Builds course.epub. Runs build-course-doc.mjs first, then converts its output.
 // E-readers reflow text but not tables, so every table becomes a stack of
 // blocks: the first cell is the heading, and each other cell becomes a
 // "Column: value" line. Each Day is its own chapter.
 //
-// Usage: node assets/build-course-epub.mjs "<Course title>" "<Author>"
+// Usage: node assets/build-course-epub.mjs "<Course title>" "<one-line subtitle>" "<Author>"
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const [title = 'Course', author = ''] = process.argv.slice(2)
+const [title = 'Course', subtitle = '', author = ''] = process.argv.slice(2)
 const root = new URL('..', import.meta.url).pathname
 const here = new URL('.', import.meta.url).pathname
+
+execFileSync('node', [join(here, 'build-course-doc.mjs'), title, subtitle], { stdio: 'inherit' })
 
 const cells = (row, tag) =>
   [...row.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))].map((m) => m[1].trim())
@@ -58,6 +60,7 @@ execFileSync('pandoc', [
   '--toc-depth=1',
   '--css', join(here, 'epub.css'),
   '--metadata', `title=${title}`,
+  ...(subtitle ? ['--metadata', `subtitle=${subtitle}`] : []),
   ...(author ? ['--metadata', `author=${author}`] : []),
   '--metadata', 'lang=en-US',
   '-o', out,

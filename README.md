@@ -8,7 +8,7 @@ Screens pull you toward the next tab, notification, or message. An e-reader like
 
 | Skill                              | What it binds                                                                                                                            | Requires                                                                                                                       |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [`teach-book`](skills/teach-book/) | A self-paced course on any topic, one chapter per day, with practice questions and an answer key. Delivered as an EPUB and a Google Doc. | [`mattpocock-skills`](https://github.com/mattpocock/skills) plugin, Chrome, `pandoc`, and a Google Drive connector for the Doc |
+| [`teach-book`](skills/teach-book/) | A self-paced course on any topic, one chapter per day, with practice questions and an answer key. Delivered as an EPUB, with an optional Google Doc copy. | [`mattpocock-skills`](https://github.com/mattpocock/skills) plugin, Chrome, `pandoc`, and, for the optional Doc, a Google Drive connector |
 
 ## Install a skill
 

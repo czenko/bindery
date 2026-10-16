@@ -67,7 +67,7 @@ ${courseSubtitle ? `<p><em>${courseSubtitle}</em></p>` : ''}
 <ul>
 <li>Do one day at a time, at your own pace. Each day takes about 15 minutes.</li>
 <li>Answer the warm-up and quiz before checking the answer key at the end of each day.</li>
-<li>Each day ends with an "Apply it" task on the real docs. Reply in the Claude chat with "Day N:" and your answers or task output, and we'll go from there.</li>
+<li>Each day ends with an "Apply it" task on your own work. Reply in the Claude chat with "Day N:" and your answers or task output, and we'll go from there.</li>
 </ul>
 <h2>Contents</h2>
 <ol>${days.map((d) => `<li>${d.title}</li>`).join('')}</ol>
