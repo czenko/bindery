@@ -4,7 +4,13 @@ This repo is public. Everything committed here is world-readable, including hist
 
 ## What belongs here
 
-General-purpose skills only: ones anyone could use, at any job, on any project.
+Skills that bind content into something worth reading away from a screen, usually an EPUB for an e-reader. Each one must be general purpose: anyone could use it, at any job, on any project.
+
+Write for e-readers first:
+
+- Output reflows on a small screen. No fixed-width tables, wide code blocks, or layouts that rely on color.
+- Every book has a title page, a table of contents, and one chapter per sitting.
+- Nothing in the book needs a browser, a click, or a network connection to make sense.
 
 ## Never commit
 
