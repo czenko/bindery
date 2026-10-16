@@ -1,0 +1,64 @@
+/* E-reader stylesheet. Keep it light: readers override fonts and margins. */
+body {
+  line-height: 1.5;
+}
+h1 {
+  font-size: 1.5em;
+  margin: 0 0 0.3em;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 1.2em;
+  margin: 1.6em 0 0.4em;
+}
+h3 {
+  font-size: 1em;
+  margin: 1.3em 0 0.3em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+h1,
+h2,
+h3 {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+p,
+li {
+  orphans: 2;
+  widows: 2;
+}
+sup {
+  font-size: 0.7em;
+  line-height: 0;
+}
+code {
+  font-size: 0.9em;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #999;
+  margin: 1.5em 0;
+}
+
+/* Tables, rebuilt as stacked blocks. */
+.stack {
+  margin: 0.8em 0;
+}
+.item {
+  border-left: 2px solid #999;
+  padding-left: 0.7em;
+  margin: 0 0 0.8em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.item p {
+  margin: 0.15em 0;
+  text-indent: 0;
+}
+.item .t {
+  font-weight: bold;
+}
+.item .k {
+  font-style: italic;
+}
