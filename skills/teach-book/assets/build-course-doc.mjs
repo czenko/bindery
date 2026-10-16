@@ -76,11 +76,18 @@ ${days.map((d) => d.body).join('\n')}
 ${glossary}
 </body></html>`
 
+// Collapsing whitespace would flatten code blocks onto one line, so set them aside first.
+const pres = []
 const min = doc
+  .replace(/<pre[\s\S]*?<\/pre>/g, (block) => {
+    pres.push(block)
+    return `@@PRE${pres.length - 1}@@`
+  })
   .replace(/ (class|data-answer|data-options|lang)="[^"]*"/g, '')
   .replace(/<div>|<\/div>/g, '')
   .replace(/\s+/g, ' ')
   .replace(/\s*(<\/?(?:p|li|ul|ol|h\d|table|tbody|tr|td|th|hr|body|html)\b[^>]*>)\s*/g, '$1')
+  .replace(/@@PRE(\d+)@@/g, (_, i) => pres[Number(i)])
 
 writeFileSync(join(root, 'course-doc.html'), min)
 console.log(`Wrote course-doc.html: ${days.length} days, ${min.length} chars`)
