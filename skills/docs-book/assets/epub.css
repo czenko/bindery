@@ -1,0 +1,134 @@
+/* E-reader stylesheet. Keep it light: readers override fonts and margins. */
+body {
+  line-height: 1.5;
+}
+h1 {
+  font-size: 1.5em;
+  margin: 0 0 0.3em;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 1.2em;
+  margin: 1.6em 0 0.4em;
+}
+h3 {
+  font-size: 1em;
+  margin: 1.3em 0 0.3em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+h1,
+h2,
+h3 {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+p,
+li {
+  orphans: 2;
+  widows: 2;
+}
+sup {
+  font-size: 0.7em;
+  line-height: 0;
+}
+code {
+  font-size: 0.9em;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #999;
+  margin: 1.5em 0;
+}
+
+/* Tables, rebuilt as stacked blocks. */
+.stack {
+  margin: 0.8em 0;
+}
+.item {
+  border-left: 2px solid #999;
+  padding-left: 0.7em;
+  margin: 0 0 0.8em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.item p {
+  margin: 0.15em 0;
+  text-indent: 0;
+}
+.item .t {
+  font-weight: bold;
+}
+.item .k {
+  font-style: italic;
+}
+
+/* docs-book additions. */
+
+/* Title page: the bound date sits right under the title, as large as a subtitle. */
+.titlepage .subtitle {
+  font-size: 1.3em;
+  font-weight: bold;
+  margin: 1em 0;
+}
+.bound p {
+  font-size: 1.3em;
+  font-weight: bold;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+  padding: 0.5em 0;
+  margin: 1em 0;
+  text-align: center;
+}
+
+/* Text written by the agent, not the docs. */
+.editor {
+  font-style: italic;
+  border-left: 3px solid #666;
+  padding-left: 0.8em;
+  margin: 1em 0 1.5em;
+}
+.editor .label {
+  font-style: normal;
+  font-weight: bold;
+}
+
+/* Marks where a procedure was cut. */
+.cut p,
+.tab-label p {
+  font-size: 0.85em;
+  color: #555;
+  font-style: italic;
+  margin: 0.6em 0;
+}
+
+blockquote {
+  border-left: 2px solid #999;
+  margin: 1em 0;
+  padding-left: 0.8em;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.85em;
+  margin: 0.8em 0;
+}
+
+/* Endnote markers and lists. */
+sup a {
+  text-decoration: none;
+}
+.links li,
+.answers p {
+  font-size: 0.9em;
+  word-break: break-all;
+}
+.answers p {
+  word-break: normal;
+}
+
+ol.options {
+  list-style-type: upper-alpha;
+  margin: 0.3em 0 1em 1.5em;
+}
