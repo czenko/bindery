@@ -4,9 +4,11 @@ This repo is public. Everything committed here is world-readable, including hist
 
 ## What belongs here
 
-Skills that bind content into something worth reading away from a screen, usually an EPUB for an e-reader. Each one must be general purpose: anyone could use it, at any job, on any project.
+Skills that help you slow down and work more mindfully: they move work off the screen, cut interruptions, or give you room to think before you act. Each one must be general purpose: anyone could use it, at any job, on any project.
 
-Write for e-readers first:
+A skill earns its place by leaving you less scattered than you started. Prefer output you can take away from the laptop, a pace you set yourself, and as few prompts back to the screen as possible.
+
+When a skill produces something to read, such as an EPUB, write for e-readers first:
 
 - Output reflows on a small screen. No fixed-width tables, wide code blocks, or layouts that rely on color.
 - Every book has a title page, a table of contents, and one chapter per sitting.
