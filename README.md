@@ -13,19 +13,21 @@ Screens pull you toward the next tab, notification, or message. These skills pus
 
 ## Install a skill
 
-Clone the repo, then symlink a skill into your skills directory:
+Each skill installs on its own. Clone the repo once:
 
 ```bash
 git clone https://github.com/czenko/unplug-skills.git ~/Code/unplug-skills
 ```
 
-```bash
-ln -s ~/Code/unplug-skills/skills/teach-book ~/.claude/skills/teach-book
-```
+Then follow the skill's own README for what it requires and how to link it: [`docs-book`](skills/docs-book/README.md) or [`teach-book`](skills/teach-book/README.md).
 
 ## Read on your e-reader
 
 Most e-readers, including Kobo, open EPUB files. Copy the `.epub` over USB, or upload it to a cloud library your e-reader syncs with.
+
+## Keep a book current
+
+Documentation changes, so every `docs-book` binding has its date on the cover. To update a book, ask your agent to rebind it. The rebind keeps everything decided last time: the outline, the cuts, the trims, the editor's notes, and the review questions. You're asked only about pages that are new or gone. Chapters whose pages didn't change come through as you left them, and only questions about sections that changed get flagged. The new book opens with what changed since the last binding.
 
 ## Add a skill
 
