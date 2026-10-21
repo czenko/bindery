@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { extname } from 'node:path'
 import { launch } from './cdp.mjs'
+import { draftChapter, slugify } from './draft.mjs'
 
 const force = process.argv.includes('--force')
 const redraft = process.argv.includes('--redraft')
@@ -23,13 +24,6 @@ const outline = JSON.parse(readFileSync('outline.json', 'utf8'))
 mkdirSync('pages', { recursive: true })
 mkdirSync('images', { recursive: true })
 mkdirSync('chapters', { recursive: true })
-
-const slugify = (s) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 50) || 'page'
 
 // Runs inside the page. Mutates the live DOM, which is thrown away afterward.
 async function extractInPage(opts) {
@@ -117,7 +111,12 @@ async function extractInPage(opts) {
     const fresh = document.createElement('pre')
     const c = document.createElement('code')
     if (lang) c.className = `language-${lang}`
-    c.textContent = code.textContent.replace(/\n+$/, '')
+    // Some highlighters render each line as its own block with no newline
+    // characters, so textContent would run every line together. innerText
+    // follows the layout; fall back to textContent when the two agree on lines.
+    const byLayout = code.innerText || ''
+    const raw = code.textContent
+    c.textContent = (byLayout.split('\n').length > raw.split('\n').length ? byLayout : raw).replace(/\n+$/, '')
     fresh.append(c)
     pre.replaceWith(fresh)
   }
@@ -157,10 +156,17 @@ async function extractInPage(opts) {
   // Cuts from the outline: a heading id or exact heading text removes that
   // heading and everything under it, leaving a marker that becomes an endnote.
   const headingLevel = (el) => Number(el.tagName.slice(1))
+  const missingCuts = []
+  // A cut nested under another cut disappears with its parent; that isn't a miss.
+  const original = [...root.querySelectorAll('h2, h3, h4, h5, h6')].map((x) => ({ id: x.id, text: x.textContent.replace(/[\u200b#]/g, '').trim().toLowerCase() }))
   for (const cut of opts.cuts || []) {
     const heads = [...root.querySelectorAll('h2, h3, h4, h5, h6')]
     const h = heads.find((x) => (cut.startsWith('#') ? x.id === cut.slice(1) : x.textContent.replace(/[​#]/g, '').trim().toLowerCase() === cut.toLowerCase()))
-    if (!h) continue
+    if (!h) {
+      const existed = original.some((x) => (cut.startsWith('#') ? x.id === cut.slice(1) : x.text === cut.toLowerCase()))
+      if (!existed) missingCuts.push(cut)
+      continue
+    }
     const marker = document.createElement('p')
     marker.className = 'cut'
     marker.dataset.href = `${location.origin}${location.pathname}${h.id ? `#${h.id}` : ''}`
@@ -189,9 +195,13 @@ async function extractInPage(opts) {
     h.replaceWith(fresh)
   }
   const ids = {}
+  const used = new Set()
   for (const el of root.querySelectorAll('[id]')) {
-    ids[el.id] = `${opts.idPrefix}-${el.id}`
-    el.id = ids[el.id]
+    let id = `${opts.idPrefix}-${el.id}`
+    for (let n = 2; used.has(id); n++) id = `${opts.idPrefix}-${el.id}-${n}`
+    used.add(id)
+    if (!(el.id in ids)) ids[el.id] = id
+    el.id = id
   }
 
   // Drop presentational attributes so the book's stylesheet is in charge.
@@ -209,7 +219,17 @@ async function extractInPage(opts) {
 
   const longestCodeLine = Math.max(0, ...[...root.querySelectorAll('pre')].flatMap((p) => p.textContent.split('\n').map((l) => l.length)))
   const words = root.textContent.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length
-  return { title, html: root.innerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim(), ids, images, words, longestCodeLine }
+  return { title, html: root.innerHTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim(), ids, images, words, longestCodeLine, missingCuts }
+}
+
+// E-reader SVG support is patchy, so SVG images are rasterized to PNG in Chrome.
+async function rasterize(svgFile, browserPage) {
+  const png = svgFile.replace(/\.svg$/, '.png')
+  if (existsSync(png)) return png
+  const data = readFileSync(svgFile).toString('base64')
+  await browserPage.setContent(`<html><body style="margin:0;background:#fff"><img style="display:block;width:1200px" src="data:image/svg+xml;base64,${data}"></body></html>`)
+  writeFileSync(png, await browserPage.screenshot({ fullPage: true }))
+  return png
 }
 
 async function download(src) {
@@ -226,19 +246,16 @@ const inventory = existsSync('inventory.json') ? JSON.parse(readFileSync('invent
 const invTitle = new Map(inventory.pages.map((p) => [p.url, p.title]))
 const index = existsSync('pages/index.json') ? JSON.parse(readFileSync('pages/index.json', 'utf8')) : {}
 
-// Number pages in book order so ids and file names are stable.
-const chapters = []
-let pageNo = 0
-outline.parts.forEach((part) =>
-  part.chapters.forEach((ch) => {
-    chapters.push(ch)
-    for (const p of ch.pages) if (p.action !== 'cut') p.n = ++pageNo
-  })
-)
+// Number pages once and keep the number. Ids and file names derive from it,
+// so adding a page on a rebind doesn't shift every page after it.
+const chapters = outline.parts.flatMap((part) => part.chapters)
+let pageNo = Math.max(0, ...chapters.flatMap((ch) => ch.pages.map((p) => p.n || 0)))
+for (const ch of chapters) for (const p of ch.pages) if (p.action !== 'cut' && !p.n) p.n = ++pageNo
 
 const browser = await launch()
 try {
   const page = await browser.newPage()
+  const svgPage = await browser.newPage({ width: 1200, height: 400 })
   for (const ch of chapters) {
     const kept = ch.pages.filter((p) => p.action !== 'cut')
     for (const p of kept) {
@@ -263,15 +280,16 @@ try {
         const failed = []
         for (const src of r.images) {
           try {
-            const local = await download(src)
+            let local = await download(src)
+            if (local.endsWith('.svg')) local = await rasterize(local, svgPage)
             html = html.split(`src="${src.replace(/&/g, '&amp;')}"`).join(`src="${local}"`).split(`src="${src}"`).join(`src="${local}"`)
           } catch (err) {
             failed.push(`${src} (${err.message})`)
           }
         }
         writeFileSync(file, html + '\n')
-        index[p.url] = { n: p.n, id, file, title: r.title, ids: r.ids, words: r.words, longestCodeLine: r.longestCodeLine, cuts: p.cut || [], failedImages: failed }
-        console.log(`${r.words} words${failed.length ? `, ${failed.length} images failed` : ''}`)
+        index[p.url] = { n: p.n, id, file, title: r.title, ids: r.ids, words: r.words, longestCodeLine: r.longestCodeLine, cuts: p.cut || [], missingCuts: r.missingCuts, failedImages: failed }
+        console.log(`${r.words} words${failed.length ? `, ${failed.length} images failed` : ''}${r.missingCuts.length ? `, cut not found: ${r.missingCuts.join('; ')}` : ''}`)
       } catch (err) {
         index[p.url] = { n: p.n, id, error: err.message }
         console.log(`FAILED: ${err.message}`)
@@ -285,43 +303,11 @@ try {
 
 // Chapter drafts: the kept pages stitched together, with placeholders for the
 // editor's note and the review questions. build-docs-epub.mjs refuses to build
-// while any TODO placeholder is left.
+// while any TODO placeholder is left. Chapter files keep their names once set.
 chapters.forEach((ch, i) => {
-  const file = `chapters/${String(i + 1).padStart(2, '0')}-${ch.slug || slugify(ch.title)}.html`
-  ch.file = file
-  if (existsSync(file) && !redraft) return
-  const kept = ch.pages.filter((p) => p.action !== 'cut' && index[p.url]?.file)
-  const body = kept
-    .map((p) => {
-      const meta = index[p.url]
-      const html = readFileSync(meta.file, 'utf8')
-      const heading = kept.length === 1 ? '' : `<h3 id="${meta.id}">${meta.title}</h3>\n`
-      return `<section data-src="${p.url}"${kept.length === 1 ? ` id="${meta.id}"` : ''}>\n${heading}${html}</section>`
-    })
-    .join('\n\n')
-  writeFileSync(
-    file,
-    `<h2>${ch.title}</h2>
-
-<aside class="editor">
-<p>TODO: two or three sentences on what this chapter covers and how it serves the reader's goal.</p>
-</aside>
-
-${body}
-
-<section class="review">
-<!-- TODO: 4–8 review questions. Multiple choice:
-<div class="quiz-item" data-answer="Option B">
-  <p class="quiz-q">Question?</p>
-  <div class="quiz-options" data-options="Option A|Option B|Option C|Option D"></div>
-  <div class="quiz-feedback">Why B is right, citing the section that says so.</div>
-</div>
-Free recall:
-<div class="recall"><p>Prompt</p><div class="quiz-feedback">Model answer, citing the section.</div></div>
--->
-</section>
-`
-  )
+  ch.file ||= `chapters/${String(i + 1).padStart(2, '0')}-${ch.slug || slugify(ch.title)}.html`
+  if (existsSync(ch.file) && !redraft) return
+  writeFileSync(ch.file, draftChapter(ch, index))
 })
 
 writeFileSync('outline.json', JSON.stringify(outline, null, 2))

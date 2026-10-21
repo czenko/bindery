@@ -5,7 +5,9 @@
 // Chrome. Pages listed in /llms.txt or /sitemap.xml but missing from the
 // sidebar are appended under "Not in nav".
 //
-// Usage: node assets/discover.mjs <root-url> [--prefix /docs/] [--max 500]
+// Usage: node assets/discover.mjs <root-url> [<more-urls>…] [--prefix /docs/] [--max 500]
+// Pass one URL per section when a site's sidebar changes from section to
+// section; their sidebars are read in the order given.
 // Writes inventory.json in the current directory.
 
 import { writeFileSync } from 'node:fs'
@@ -16,7 +18,8 @@ const flag = (name, fallback) => {
   const i = args.indexOf(`--${name}`)
   return i === -1 ? fallback : args[i + 1]
 }
-const rootArg = args.find((a) => /^https?:\/\//.test(a))
+const startArgs = args.filter((a) => /^https?:\/\//.test(a))
+const rootArg = startArgs[0]
 if (!rootArg) {
   console.error('Usage: node discover.mjs <root-url> [--prefix /docs/] [--max 500]')
   process.exit(1)
@@ -154,13 +157,15 @@ async function pool(items, size, fn) {
   return results
 }
 
-// 1. Sidebar order from the rendered root page.
+// 1. Sidebar order from each rendered start page.
 const browser = await launch()
-let nav = []
+const nav = []
 try {
   const page = await browser.newPage()
-  await page.goto(root.href)
-  nav = await page.evaluate(harvestNav)
+  for (const start of startArgs) {
+    await page.goto(start)
+    nav.push({ href: start, title: '', section: '' }, ...(await page.evaluate(harvestNav)))
+  }
 } finally {
   await browser.close()
 }
@@ -209,6 +214,8 @@ const live = pages.filter((p) => !p.skipped)
 const inventory = {
   root: root.href,
   prefix,
+  // How this inventory was made, so rebind.mjs can repeat it exactly.
+  discover: { starts: startArgs, prefix, max },
   discoveredAt: new Date().toISOString(),
   sources,
   totals: { pages: live.length, words: live.reduce((sum, p) => sum + (p.words || 0), 0) },

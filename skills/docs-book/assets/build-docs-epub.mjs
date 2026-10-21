@@ -25,12 +25,9 @@ const today = new Date()
 const pad = (n) => String(n).padStart(2, '0')
 const bound = flag('bound') || `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
 if (!/^\d{4}-\d{2}-\d{2}$/.test(bound)) throw new Error(`--bound must be YYYY-MM-DD, got ${bound}`)
-const boundLong = new Date(`${bound}T00:00:00Z`).toLocaleDateString('en-GB', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
+const longDate = (d) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+const boundLong = longDate(bound)
 
 const outline = JSON.parse(readFileSync('outline.json', 'utf8'))
 const index = JSON.parse(readFileSync('pages/index.json', 'utf8'))
@@ -72,6 +69,15 @@ if (todos.length) {
   console.error(`Finish these chapters first; they still contain TODO: ${todos.map((c) => c.file).join(', ')}`)
   process.exit(1)
 }
+const conflicts = chapters.filter((ch) => /^(<{7}|>{7}|={7}|\|{7})/m.test(ch.html))
+if (conflicts.length) {
+  console.error(`Resolve the rebind merge conflicts first: ${conflicts.map((c) => c.file).join(', ')}`)
+  process.exit(1)
+}
+
+// What changed since the last binding, written by rebind.mjs.
+const changes = existsSync('changes.json') ? JSON.parse(readFileSync('changes.json', 'utf8')) : null
+const since = changes && changes.since < bound ? changes.since : null
 
 // ---- Link map ----------------------------------------------------------------
 
@@ -153,7 +159,11 @@ function renderChapter(ch) {
   })
 
   html = html
-    .replace(/<h2>([\s\S]*?)<\/h2>/, (_, t) => `<h2 id="ch${ch.n}">${ch.n}. ${t.trim()}</h2>`)
+    .replace(/<h2>([\s\S]*?)<\/h2>/, (_, t) => {
+      const status = since && changes.chapters?.[ch.file]?.status
+      const note = status ? `<div class="cut"><p>${status === 'new' ? 'New' : 'Updated'} since the ${longDate(since)} binding.</p></div>` : ''
+      return `<h2 id="ch${ch.n}">${ch.n}. ${t.trim()}</h2>${note}`
+    })
     .replace(
       /<aside class="editor">([\s\S]*?)<\/aside>/g,
       (_, inner) => `<div class="editor">${inner.replace(/<p>/, '<p><span class="label">Editor’s note.</span> ')}</div>`
@@ -208,9 +218,25 @@ function renderChapter(ch) {
 // ---- Front matter ---------------------------------------------------------------
 
 const leftOut = outline.leftOut || []
+
+function changesSection() {
+  const items = []
+  for (const ch of chapters) {
+    const c = changes.chapters?.[ch.file]
+    if (!c) continue
+    const pages = c.pages?.length ? ` (${c.pages.map(esc).join(', ')})` : ''
+    items.push(`<li>Chapter ${ch.n}, ${esc(ch.title)}: ${c.status === 'new' ? 'new' : `updated${pages}`}.</li>`)
+  }
+  for (const r of changes.removed || []) items.push(`<li>Removed: ${esc(r.title || r.url)}${r.reason ? `, ${esc(r.reason)}` : ''}.</li>`)
+  const body = items.length
+    ? `<ul>${items.join('')}</ul>`
+    : `<p>None of the pages in this book changed. This binding only confirms they’re current as of ${boundLong}.</p>`
+  return `<h3>What changed since ${longDate(since)}</h3>${body}`
+}
 const about = `<h1 id="about">About this book</h1>
 <div class="bound"><p>Bound ${boundLong}</p></div>
 <p>This book was bound from the documentation at ${esc(sourceUrl)} on ${boundLong}. Documentation changes. Anything published after that date isn’t here, and some of what is here may have changed since.</p>
+${since ? changesSection() : ''}
 ${outline.goal ? `<h3>Why this book</h3><p>${outline.goal}</p>` : ''}
 <h3>How it was made</h3>
 <p>The text is the documentation’s own, chosen for reading away from a screen. Concepts, design rationale, and explanations are kept in full. Step-by-step procedures that only make sense at a computer were cut, and each cut is marked where it happened.</p>
@@ -293,4 +319,6 @@ execFileSync('pandoc', [
   '--metadata', 'lang=en',
   '-o', out,
 ])
-console.log(`Wrote ${out}: ${chapters.length} chapters, bound ${boundLong}`)
+// rebind.mjs reads this to find the binding it starts from.
+writeFileSync('bind.json', JSON.stringify({ bound, file: out, title, chapters: chapters.length }, null, 2))
+console.log(`Wrote ${out}: ${chapters.length} chapters, bound ${boundLong}${since ? `, with changes since ${longDate(since)}` : ''}`)

@@ -1,6 +1,6 @@
 ---
 name: docs-book
-description: Bind a documentation website into a full-length EPUB for deep reading on an e-reader. Chooses the conceptual material worth reading away from a screen, cuts procedures that only make sense at a computer, keeps cross-references working, adds review questions with answer keys, and puts the bound date on the cover. Use when the user invokes /docs-book, or asks to turn docs or a documentation site into a book, or to read documentation "on my e-reader," "on my Kobo," or "offline."
+description: Bind a documentation website into a full-length EPUB for deep reading on an e-reader. Chooses the conceptual material worth reading away from a screen, cuts procedures that only make sense at a computer, keeps cross-references working, adds review questions with answer keys, and puts the bound date on the cover. Use when the user invokes /docs-book, or asks to turn docs or a documentation site into a book, or to read documentation "on my e-reader," "on my Kobo," or "offline." Also use to rebind or update a book bound earlier, when the docs have changed.
 argument-hint: 'Which documentation site, and what do you want to understand from it?'
 ---
 
@@ -10,7 +10,7 @@ Documentation is written for someone at a keyboard, halfway through a task. This
 
 The book keeps the docs' own words. You pick and order pages, cut what only works at a computer, and add three things of your own: short editor's notes, review questions, and a glossary. Each is clearly marked as yours.
 
-Requires Node 22 or later, Chrome, and `pandoc`. The scripts are in this skill's `assets/`, and they all run from the workspace directory.
+Requires Node 22 or later, Chrome, and `pandoc`. Rebinding also needs `git`, for its three-way merge. The scripts are in this skill's `assets/`, and they all run from the workspace directory.
 
 ## 1. Set up
 
@@ -107,7 +107,7 @@ For every kept or partial page, this renders the page in headless Chrome and tak
 
 Open two or three pages and check them. If there's site chrome left, or content missing, set `stripSelectors` or `contentSelector` in `outline.json` and rerun with `--force`.
 
-Rerunning skips cached pages and leaves existing chapter drafts alone. `--redraft` overwrites the drafts, and your edits with them.
+Rerunning skips cached pages and leaves existing chapter drafts alone. `--redraft` overwrites the drafts, and your edits with them. To bring a finished book up to date, don't use either: see step 8.
 
 ## 5. Edit each chapter
 
@@ -118,7 +118,7 @@ Each draft has the chapter's pages stitched together, with two `TODO` placeholde
 3. **Review questions.** Replace the review placeholder with 4–8 questions, in the markup shown in the draft:
    - `.quiz-item` for multiple choice, and `.recall` for free recall.
    - Test understanding, not syntax. Ask why something is designed that way, what happens if a setting changes, and which tradeoff applies when.
-   - Every explanation cites the section heading that supports it. No answer may depend on anything that isn't in the book.
+   - End every explanation with the heading that supports it, exactly as written: `(See “Grants and policies”.)`, or `(See “A” and “B”.)`. A rebind uses these to tell you which questions a docs change may have broken. No answer may depend on anything that isn't in the book.
    - Within a question, keep the options about the same length.
 4. **Glossary** (optional). Write `glossary.html` as a `<dl>`, and use the docs' own definitions where they exist.
 
@@ -161,11 +161,45 @@ The build also:
 3. **Deliver:** send the EPUB with `SendUserFile`. Most e-readers, including Kobo, open EPUB. Copy it over USB, or upload it to a cloud library the e-reader syncs with.
 4. Record the file name, the bound date, and the outline's page count in `NOTES.md`.
 
-To re-bind later, rerun from step 2 or step 4. Re-binding gives a new bound date and a new file name, and the reader can tell which is newer from the cover.
+## 8. Rebind when the docs change
+
+A rebind keeps every decision from the last binding: the outline, the cuts, your trims, the editor's notes, and the review questions. You only look at what the docs changed. Run it in the same workspace.
+
+1. **Prepare:**
+   ```bash
+   node <skill>/assets/rebind.mjs prepare
+   ```
+   This saves the last binding in `binds/<bound-date>/`, reruns discovery with the same start URLs, and writes `REBIND.md`. Read only that file. It lists:
+   - **New pages:** on the site now, but not considered last time. Add each one to a chapter in `outline.json`, or decline it by adding `{ "url", "title", "reason" }` to `outline.declined`. Declined pages aren't offered again.
+   - **Pages that may be gone:** if one moved, change its URL in the outline. If it's gone for good, remove it and add it to `leftOut` with the reason.
+   - **Pages that changed size** by more than 15%.
+
+   When nothing is new or gone, go straight to merge without asking the user.
+2. **Merge:**
+   ```bash
+   node <skill>/assets/rebind.mjs merge
+   ```
+   This re-extracts every page, then merges each chapter three ways: your finished chapter, the draft you edited it from, and a draft of the live pages.
+   - **Unchanged chapters** are copied back byte for byte. Don't open them.
+   - **Changed docs text** merges in around your edits.
+   - **A conflict** means the docs changed a passage you had edited or trimmed. Each one is marked in the chapter with your edits, the last binding, and the live docs. Keep your trim if the reason for it still holds.
+
+   `REBIND.md` becomes a to-do list. It covers:
+   - conflicts
+   - cuts whose heading no longer matches, so the procedure may be back
+   - pages that failed to extract
+   - new pages that need questions
+   - questions that cite a section that changed or disappeared
+   - editor's notes to reread when a chapter changed a lot
+3. **Work the list.** Fix cuts first: update `cut` in `outline.json` and rerun merge. Merge starts again from the snapshot, so rerunning it after you've resolved conflicts throws that work away. Then resolve conflicts, and check or rewrite only the questions the list names.
+4. **Bind and check** as in steps 6 and 7. The build refuses to run while a conflict marker is left. It gives the book a new bound date and file name, and `changes.json` adds "What changed since …" to About this book. Each changed chapter also gets an "Updated since the … binding" line under its title. When nothing changed, the About page says so, and the new date confirms the book is current.
+
+Page numbers and chapter file names stay fixed once assigned, so adding a page doesn't change the ids of the pages after it.
 
 ## Gotchas
 
 - Some sites block headless Chrome, or put content behind a sign-in. Their pages come back as `HTTP 403` or with almost no words. Tell the user. Don't try to get around it.
+- A rebind compares against the inventory saved in the snapshot. A binding made before rebind support has no record of its discovery start URLs, so `prepare` falls back to the root URL. Add `"discover": { "starts": [...], "prefix": "...", "max": 500 }` to `inventory.json` before preparing if the site needed several start URLs.
 - Huge sites: `--max` caps the inventory at 500 pages. If a site has more, ask the user which sections matter before raising it.
 - Many links to pages left out mean many endnotes. If a chapter's Links list runs past about 30, consider bringing the most-cited page into the book, or trimming link-heavy passages.
 - A formatter may reflow the workspace HTML after each write, so a single-line `sed` misses text that now wraps. Use `perl -0pi` with `\s+`, or a Node script, and grep afterward to confirm the change landed.
